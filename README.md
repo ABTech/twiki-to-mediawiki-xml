@@ -67,7 +67,9 @@ The `twiki-to-mediawiki-xml` command should now be available.
 ## License
 
 Copyright (C) 2022-present  AB Tech, Carnegie Mellon University
+
 Copyright (C) 2022          Perry Naseck (git@perrynaseck.com)
+
 Copyright (C) 2011-2016     Ryan Castillo (some parts of files)
 
 This program is free software: you can redistribute it and/or modify
