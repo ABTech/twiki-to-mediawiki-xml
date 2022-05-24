@@ -24,8 +24,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import sys
+import traceback
+from logging import getLogger
+from os.path import normpath
 
-# from twiki_to_mediawiki_xml import ?
+from twiki_to_mediawiki_xml.twiki_parser import TWikiParser
+
+logger = getLogger(__name__)
 
 LICENSE_NOTICE = """twiki-to-mediawiki-xml Copyright (C) 2022-present  AB Tech
 This program comes with ABSOLUTELY NO WARRANTY; for details see LICENSE and
@@ -40,12 +45,27 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description='Convert a TWiki to MediaWiki XML.',
         epilog=LICENSE_NOTICE)
-    parser.add_argument('twiki_data_web_path',  type=str,
-                        help='Path to TWiki data web folder')
+    parser.add_argument('command',  type=str,
+                        choices=['twiki_parser'],
+                        help='Which tool to run')
+    parser.add_argument('in_path',  type=str,
+                        help='Input path')
+    parser.add_argument('out_path',  type=str,
+                        help='Output path')
     args = parser.parse_args()
 
-    print(args.twiki_data_web_path)
-    print("Nothing yet!")
+    norm_in_path = normpath(args.in_path)
+    norm_out_path = normpath(args.out_path)
+
+    try:
+        if args.command == 'twiki_parser':
+            parser = TWikiParser(norm_in_path, norm_out_path)
+            out = parser.run()
+            print(out)
+
+    except Exception as error:  # pylint: disable=broad-except
+        logger.error('%s\n\n%s', repr(error), traceback.format_exc())
+        return 1
 
     return 0
 
