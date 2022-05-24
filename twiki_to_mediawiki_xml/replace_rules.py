@@ -22,11 +22,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-"""
-Many of the regex rules in this file come from Ryan Castillo's Perl
-script:
-https://github.com/rmcastil/Twiki-to-Mediawiki/blob/f236827dd1795ee400186a19a4f11a248a949874/twiki2mediawiki.pl
-"""
+# Many of the regex rules in this file come from Ryan Castillo's Perl
+# script:
+# https://github.com/rmcastil/Twiki-to-Mediawiki/blob/f236827dd1795ee400186a19a4f11a248a949874/twiki2mediawiki.pl
 
 # This is just a start... this file should probably get split into a whole
 # bunch of functions/class methods that handle in-place substitutions only
@@ -38,101 +36,104 @@ https://github.com/rmcastil/Twiki-to-Mediawiki/blob/f236827dd1795ee400186a19a4f1
 
 from re import sub
 
+
 def text_formatting(to_convert: str):
+    """Convert TWiki page content to Wikitext."""
+    # pylint: disable=line-too-long
+
     out = to_convert
 
     # LatexModePlugin -> Extension:Math
-    to_convert = sub(r'%\$(.*?)\$%', r"<math>$1<\/math>", to_convert)
+    out = sub(r'%\$(.*?)\$%', r"<math>$1<\/math>", out)
 
     # DirectedGraphPlugin -> Extension:GraphViz
-    to_convert = sub(r'<(\/?)dot>', r"<$1graphviz>", to_convert)
+    out = sub(r'<(\/?)dot>', r"<$1graphviz>", out)
 
     # <verbatim>
-    to_convert = sub(r'<(\/?)verbatim>', r"<$1pre>", to_convert)
+    out = sub(r'<(\/?)verbatim>', r"<$1pre>", out)
 
     # Anchors
-    to_convert = sub(r'^\s*#(\S+)\s*$', r'<div id="<nop>$1"><\/div>', to_convert)  # replace anchors with empty div's
+    out = sub(r'^\s*#(\S+)\s*$', r'<div id="<nop>$1"><\/div>', out)  # replace anchors with empty div's  # noqa: E501
 
     # Interwikis
     # q#s/\[\[$iwSitePattern:$iwPagePattern\]\]/makeLink("$1:$2")/ge#,
-    # q#s/\[\[$iwSitePattern:$iwPagePattern\]\[([^\]]+)\]\]/makeLink("$1:$2",$3)/ge#,
-    # q#s/(?:^|(?<=[\s\-\*\(]))$iwSitePattern:$iwPagePattern(?=[\s\.\,\;\:\!\?\)\|]*(?:\s|$))/makeInterwikiLink($1,$2)/ge#,
+    # q#s/\[\[$iwSitePattern:$iwPagePattern\]\[([^\]]+)\]\]/makeLink("$1:$2",$3)/ge#,  # noqa: E501
+    # q#s/(?:^|(?<=[\s\-\*\(]))$iwSitePattern:$iwPagePattern(?=[\s\.\,\;\:\!\?\)\|]*(?:\s|$))/makeInterwikiLink($1,$2)/ge#,  # noqa: E501
 
     # Links
-    # to_convert = sub(r'\[\[(https?\:.*?)\]\[(.*?)\]\]', r"makeLink($1,$2)", to_convert)  # [[http(s):...][label]]
-    # to_convert = sub(r'\[\[(ftp\:.*?)\]\[(.*?)\]\]', r"makeLink($1,$2)", to_convert)  # [[ftp:...][label]]
-    # to_convert = sub(r'\[\[([^\]<>]*)\]\]', r"makeLink(makeWikiWord($1),$1)", to_convert)  # [[link]]
-    # to_convert = sub(r'\[\[([^\]<>]*)\]\[(.*?)\]\]', r"makeLink(makeWikiWord($1),$2)", to_convert)  # [[link][text]]
-    # to_convert = sub(r'<a.*?href="(.*?)".*?>\s*(.*?)\s*<\/a>', r"makeLink($1,$2)", to_convert)  # <a href="...">...</a>
+    # out = sub(r'\[\[(https?\:.*?)\]\[(.*?)\]\]', r"makeLink($1,$2)", out)  # [[http(s):...][label]]  # noqa: E501
+    # out = sub(r'\[\[(ftp\:.*?)\]\[(.*?)\]\]', r"makeLink($1,$2)", out)  # [[ftp:...][label]]  # noqa: E501
+    # out = sub(r'\[\[([^\]<>]*)\]\]', r"makeLink(makeWikiWord($1),$1)", out)  # [[link]]  # noqa: E501
+    # out = sub(r'\[\[([^\]<>]*)\]\[(.*?)\]\]', r"makeLink(makeWikiWord($1),$2)", out)  # [[link][text]]  # noqa: E501
+    # out = sub(r'<a.*?href="(.*?)".*?>\s*(.*?)\s*<\/a>', r"makeLink($1,$2)", out)  # <a href="...">...</a>  # noqa: E501
 
     # WikiWords
-    # to_convert = sub(r'$web\.([A-Z][${man}]*)', r"makeLink($1)", to_convert)  # $web.WikiWord -> link
-    # to_convert = sub(r'([A-Z][${man}]*)\.($wwPattern)', r"<nop>$1.<nop>$2", to_convert)  # OtherWebName.WikiWord -> <nop>OtherWebName.<nop>WikiWord
-    to_convert = sub(r'<nop>([A-Z]{1}\w+?[A-Z]{1})', r"!$1", to_convert)  # change <nop> to ! in front of Twiki words.
-    # to_convert = sub(r'(?:^|(?<=[\s\(]))($wwPattern)', r"makeLink($1,spaceWikiWord($1))", to_convert)  # WikiWord -> link
-    to_convert = sub(r'!([A-Z]{1}\w+?[A-Z]{1})', r"$1", to_convert)  # remove ! in front of Twiki words.
-    to_convert = sub(r'<nop>', r"", to_convert)  # remove <nop>
+    # out = sub(r'$web\.([A-Z][${man}]*)', r"makeLink($1)", out)  # $web.WikiWord -> link  # noqa: E501
+    # out = sub(r'([A-Z][${man}]*)\.($wwPattern)', r"<nop>$1.<nop>$2", out)  # OtherWebName.WikiWord -> <nop>OtherWebName.<nop>WikiWord  # noqa: E501
+    out = sub(r'<nop>([A-Z]{1}\w+?[A-Z]{1})', r"!$1", out)  # change <nop> to ! in front of Twiki words.  # noqa: E501
+    # out = sub(r'(?:^|(?<=[\s\(]))($wwPattern)', r"makeLink($1,spaceWikiWord($1))", out)  # WikiWord -> link  # noqa: E501
+    out = sub(r'!([A-Z]{1}\w+?[A-Z]{1})', r"$1", out)  # remove ! in front of Twiki words.  # noqa: E501
+    out = sub(r'<nop>', r"", out)  # remove <nop>
 
     # Images (attachments only) and links wrapped around images
-    to_convert = sub(r'<img .*?src="Media:(.+?)".*?\/>', r"[[File:$1]]", to_convert)  # inline images
-    to_convert = sub(r'\[\[\s*(.+?)\s*\|\s*\[\[File:(.*?)\]\]\s*\]\]', r"[[File:$2|link=$1]]", to_convert)  # external links around images
-    to_convert = sub(r'\[\s*(.+?)\s+\[\[File:(.*?)\]\]\s*\]', r"[[File:$2|link=$1]]", to_convert)  # internal links around images
+    out = sub(r'<img .*?src="Media:(.+?)".*?\/>', r"[[File:$1]]", out)  # inline images  # noqa: E501
+    out = sub(r'\[\[\s*(.+?)\s*\|\s*\[\[File:(.*?)\]\]\s*\]\]', r"[[File:$2|link=$1]]", out)  # external links around images  # noqa: E501
+    out = sub(r'\[\s*(.+?)\s+\[\[File:(.*?)\]\]\s*\]', r"[[File:$2|link=$1]]", out)  # internal links around images  # noqa: E501
 
     # Formatting
-    to_convert = sub(r'(^|[\s\(])\*(\S+?|\S[^\n]*?\S)\*($|(?=[\s\)\.\,\:\;\!\?]))', r"\1'''\2'''", to_convert)  # bold
-    to_convert = sub(r'(^|[\s\(])\_\_(\S+?|\S[^\n]*?\S)\_\_($|(?=[\s\)\.\,\:\;\!\?]))', r"\1'''''\2'''''", to_convert)  # italic bold
-    to_convert = sub(r'(^|[\s\(])\_(\S+?|\S[^\n]*?\S)\_($|(?=[\s\)\.\,\:\;\!\?]))', r"\1''\2''", to_convert)  # italic
-    to_convert = sub(r'/(^|[\s\(])==(\S+?|\S[^\n]*?\S)==($|(?=[\s\)\.\,\:\;\!\?]))', r"1'''<tt>\2<\/tt>'''", to_convert)  # monospaced bold
-    to_convert = sub(r'/(^|[\s\(])=(\S+?|\S[^\n]*?\S)=($|(?=[\s\)\.\,\:\;\!\?]))', r"\1<tt>\2<\/tt>", to_convert)  # monospaced
-    to_convert = sub(r'/(^|[\n\r])---\+\+\+\+\+\+([^\n\r]*)', r"\1======\2 ======", to_convert)  # H6
-    to_convert = sub(r'/(^|[\n\r])---\+\+\+\+\+([^\n\r]*)', r"\1=====\2 =====", to_convert)  # H5
-    to_convert = sub(r'/(^|[\n\r])---\+\+\+\+([^\n\r]*)', r"\1====\2 ====", to_convert)  # H4
-    to_convert = sub(r'/(^|[\n\r])---\+\+\+([^\n\r]*)', r"\1===\2 ===", to_convert)  # H3
-    to_convert = sub(r'/(^|[\n\r])---\+\+([^\n\r]*)', r"\1==\2 ==", to_convert)  # H2
-    to_convert = sub(r'/(^|[\n\r])---\+([^\n\r]*)', r"\1=\2 =", to_convert)  # H1
+    out = sub(r'(^|[\s\(])\*(\S+?|\S[^\n]*?\S)\*($|(?=[\s\)\.\,\:\;\!\?]))', r"\1'''\2'''", out)  # bold  # noqa: E501
+    out = sub(r'(^|[\s\(])\_\_(\S+?|\S[^\n]*?\S)\_\_($|(?=[\s\)\.\,\:\;\!\?]))', r"\1'''''\2'''''", out)  # italic bold  # noqa: E501
+    out = sub(r'(^|[\s\(])\_(\S+?|\S[^\n]*?\S)\_($|(?=[\s\)\.\,\:\;\!\?]))', r"\1''\2''", out)  # italic  # noqa: E501
+    out = sub(r'/(^|[\s\(])==(\S+?|\S[^\n]*?\S)==($|(?=[\s\)\.\,\:\;\!\?]))', r"1'''<tt>\2<\/tt>'''", out)  # monospaced bold  # noqa: E501
+    out = sub(r'/(^|[\s\(])=(\S+?|\S[^\n]*?\S)=($|(?=[\s\)\.\,\:\;\!\?]))', r"\1<tt>\2<\/tt>", out)  # monospaced  # noqa: E501
+    out = sub(r'/(^|[\n\r])---\+\+\+\+\+\+([^\n\r]*)', r"\1======\2 ======", out)  # H6  # noqa: E501
+    out = sub(r'/(^|[\n\r])---\+\+\+\+\+([^\n\r]*)', r"\1=====\2 =====", out)  # H5  # noqa: E501
+    out = sub(r'/(^|[\n\r])---\+\+\+\+([^\n\r]*)', r"\1====\2 ====", out)  # H4
+    out = sub(r'/(^|[\n\r])---\+\+\+([^\n\r]*)', r"\1===\2 ===", out)  # H3
+    out = sub(r'/(^|[\n\r])---\+\+([^\n\r]*)', r"\1==\2 ==", out)  # H2
+    out = sub(r'/(^|[\n\r])---\+([^\n\r]*)', r"\1=\2 =", out)  # H1
 
     # Bullets
-    to_convert = sub(r'(^|[\n\r])[ ]{3}\* ', r"$1\* ", to_convert)  # level 1 bullet
-    to_convert = sub(r'(^|[\n\r])[\t]{1}\* ', r"$1\* ", to_convert)  # level 1 bullet: Handle single tabs (from twiki .txt files)
-    to_convert = sub(r'(^|[\n\r])[ ]{6}\* ', r"$1\*\* ", to_convert)  # level 2 bullet
-    to_convert = sub(r'(^|[\n\r])[\t]{2}\* ', r"$1\*\* ", to_convert)  # level 1 bullet: Handle double tabs
-    to_convert = sub(r'(^|[\n\r])[ ]{9}\* ', r"$1\*\*\* ", to_convert)  # level 3 bullet
-    to_convert = sub(r'(^|[\n\r])[\t]{3}\* ', r"$1\*\*\* ", to_convert)  # level 3 bullet: Handle tabbed version
-    to_convert = sub(r'(^|[\n\r])[ ]{12}\* ', r"$1\*\*\*\* ", to_convert)  # level 4 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{15}\* ', r"$1\*\*\*\*\* ", to_convert)  # level 5 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{18}\* ', r"$1\*\*\*\*\*\* ", to_convert)  # level 6 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{21}\* ', r"$1\*\*\*\*\*\*\* ", to_convert)  # level 7 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{24}\* ', r"$1\*\*\*\*\*\*\*\* ", to_convert)  # level 8 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{27}\* ', r"$1\*\*\*\*\*\*\*\*\* ", to_convert)  # level 9 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{30}\* ', r"$1\*\*\*\*\*\*\*\*\*\* ", to_convert)  # level 10 bullet
+    out = sub(r'(^|[\n\r])[ ]{3}\* ', r"$1\* ", out)  # level 1 bullet
+    out = sub(r'(^|[\n\r])[\t]{1}\* ', r"$1\* ", out)  # level 1 bullet: Handle single tabs (from twiki .txt files)  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{6}\* ', r"$1\*\* ", out)  # level 2 bullet
+    out = sub(r'(^|[\n\r])[\t]{2}\* ', r"$1\*\* ", out)  # level 1 bullet: Handle double tabs  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{9}\* ', r"$1\*\*\* ", out)  # level 3 bullet
+    out = sub(r'(^|[\n\r])[\t]{3}\* ', r"$1\*\*\* ", out)  # level 3 bullet: Handle tabbed version  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{12}\* ', r"$1\*\*\*\* ", out)  # level 4 bullet
+    out = sub(r'(^|[\n\r])[ ]{15}\* ', r"$1\*\*\*\*\* ", out)  # level 5 bullet
+    out = sub(r'(^|[\n\r])[ ]{18}\* ', r"$1\*\*\*\*\*\* ", out)  # level 6 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{21}\* ', r"$1\*\*\*\*\*\*\* ", out)  # level 7 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{24}\* ', r"$1\*\*\*\*\*\*\*\* ", out)  # level 8 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{27}\* ', r"$1\*\*\*\*\*\*\*\*\* ", out)  # level 9 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{30}\* ', r"$1\*\*\*\*\*\*\*\*\*\* ", out)  # level 10 bullet  # noqa: E501
 
     # Numbering
-    to_convert = sub(r'(^|[\n\r])[ ]{3}[0-9]\.? ', r"$1\# ", to_convert)  # level 1 bullet
-    to_convert = sub(r'(^|[\n\r])[\t]{1}[0-9]\.? ', r"$1\# ", to_convert)  # level 1 bullet: handle 1 tab
-    to_convert = sub(r'(^|[\n\r])[ ]{6}[0-9]\.? ', r"$1\#\# ", to_convert)  # level 2 bullet
-    to_convert = sub(r'(^|[\n\r])[\t]{2}[0-9]\.? ', r"$1\#\# ", to_convert)  # level 2 bullet: handle 2 tabs
-    to_convert = sub(r'(^|[\n\r])[ ]{9}[0-9]\.? ', r"$1\#\#\# ", to_convert)  # level 3 bullet
-    to_convert = sub(r'(^|[\n\r])[\t]{3}[0-9]\.? ', r"$1\#\#\# ", to_convert)  # level 3 bullet: handle 3 tabs
-    to_convert = sub(r'(^|[\n\r])[ ]{12}[0-9]\.? ', r"$1\#\#\#\# ", to_convert)  # level 4 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{15}[0-9]\.? ', r"$1\#\#\#\#\# ", to_convert)  # level 5 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{18}[0-9]\.? ', r"$1\#\#\#\#\#\# ", to_convert)  # level 6 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{21}[0-9]\.? ', r"$1\#\#\#\#\#\#\# ", to_convert)  # level 7 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{24}[0-9]\.? ', r"$1\#\#\#\#\#\#\#\# ", to_convert)  # level 8 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{27}[0-9]\.? ', r"$1\#\#\#\#\#\#\#\#\# ", to_convert)  # level 9 bullet
-    to_convert = sub(r'(^|[\n\r])[ ]{30}[0-9]\.? ', r"$1\#\#\#\#\#\#\#\#\#\# ", to_convert)  # level 10 bullet
+    out = sub(r'(^|[\n\r])[ ]{3}[0-9]\.? ', r"$1\# ", out)  # level 1 bullet
+    out = sub(r'(^|[\n\r])[\t]{1}[0-9]\.? ', r"$1\# ", out)  # level 1 bullet: handle 1 tab  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{6}[0-9]\.? ', r"$1\#\# ", out)  # level 2 bullet
+    out = sub(r'(^|[\n\r])[\t]{2}[0-9]\.? ', r"$1\#\# ", out)  # level 2 bullet: handle 2 tabs  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{9}[0-9]\.? ', r"$1\#\#\# ", out)  # level 3 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[\t]{3}[0-9]\.? ', r"$1\#\#\# ", out)  # level 3 bullet: handle 3 tabs  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{12}[0-9]\.? ', r"$1\#\#\#\# ", out)  # level 4 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{15}[0-9]\.? ', r"$1\#\#\#\#\# ", out)  # level 5 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{18}[0-9]\.? ', r"$1\#\#\#\#\#\# ", out)  # level 6 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{21}[0-9]\.? ', r"$1\#\#\#\#\#\#\# ", out)  # level 7 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{24}[0-9]\.? ', r"$1\#\#\#\#\#\#\#\# ", out)  # level 8 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{27}[0-9]\.? ', r"$1\#\#\#\#\#\#\#\#\# ", out)  # level 9 bullet  # noqa: E501
+    out = sub(r'(^|[\n\r])[ ]{30}[0-9]\.? ', r"$1\#\#\#\#\#\#\#\#\#\# ", out)  # level 10 bullet  # noqa: E501
 
     # Definitions
     # There must be a better MW convention
-    to_convert = sub(r'(^|[\n\r])[ ]{3}\$ ([^\:]*)', r"$1\; $2 ", to_convert)  # $ definition: term
+    out = sub(r'(^|[\n\r])[ ]{3}\$ ([^\:]*)', r"$1\; $2 ", out)  # $ definition: term  # noqa: E501
 
     # Lookup variable
     # q#s/%$varPattern%/getTwikiVar($1,'')/ge#,
     # q#s/%$varPattern(\{.*?\})%/getTwikiVar($1,$2)/ge#
 
-    return to_convert
+    return out
 
 
-test = """
-This is normal.<br /><br />This is a new paragraph.<br /><br />This text is normal. *This text is bolded.* _This text is italicized. *This text is both.* *This text is also both.**_ <u>This text is underlined. *This text is bold & underlined. <i>This text is ital and underlined. <b>This is all three!</b></i></u><br /><br /><br /><b>This is bold</b><br /><br /><b>This is still bold.</b><br /><br /><br />OK
-"""
-print(text_formatting(test))
+# pylint: disable=line-too-long
+TEST = "This is normal.<br /><br />This is a new paragraph.<br /><br />This text is normal. *This text is bolded.* _This text is italicized. *This text is both.* *This text is also both.**_ <u>This text is underlined. *This text is bold & underlined. <i>This text is ital and underlined. <b>This is all three!</b></i></u><br /><br /><br /><b>This is bold</b><br /><br /><b>This is still bold.</b><br /><br /><br />OK"  # noqa: E501
+print(text_formatting(TEST))

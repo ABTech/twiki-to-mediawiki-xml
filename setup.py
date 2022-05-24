@@ -70,11 +70,12 @@ setup(
     extras_require={
         'dev': [
             'bandit>=1,<2',
-            'flake8>=3,<4',
-            'flake8-bugbear>=21,<22',
+            'flake8>=4,<5',
+            'flake8-bugbear>=22,<23',
             'isort>=5,<6',
             'pydocstyle>=6,<7',
-            'pylint>=2,<3'
+            'pylint>=2,<3',
+            'toml>=0,<1'
         ]
     }
 )

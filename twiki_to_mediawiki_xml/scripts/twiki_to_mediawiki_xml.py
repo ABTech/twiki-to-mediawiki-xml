@@ -34,6 +34,7 @@ under certain conditions; for details see LICENSE and README.md.
 
 """
 
+
 def main() -> int:
     """Convert a TWiki to MediaWiki XML."""
     parser = argparse.ArgumentParser(
