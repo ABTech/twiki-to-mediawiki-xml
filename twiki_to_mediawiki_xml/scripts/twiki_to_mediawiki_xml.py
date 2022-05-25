@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import sys
 import traceback
+from json import dumps
 from logging import getLogger
 from os.path import normpath
 
@@ -52,16 +53,20 @@ def main() -> int:
                         help='Input path')
     parser.add_argument('out_path',  type=str,
                         help='Output path')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help='Don\'t output the result, just run')
     args = parser.parse_args()
 
     norm_in_path = normpath(args.in_path)
     norm_out_path = normpath(args.out_path)
 
+    out = ""
     try:
         if args.command == 'twiki_parser':
             parser = TWikiParser(norm_in_path, norm_out_path)
             out = parser.run()
-            print(out)
+        if not args.quiet:
+            print(dumps(out))
 
     except Exception as error:  # pylint: disable=broad-except
         logger.error('%s\n\n%s', repr(error), traceback.format_exc())
