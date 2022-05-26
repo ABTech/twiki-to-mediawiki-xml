@@ -82,24 +82,35 @@ class TWikiParser():
             with open(page["twiki_v_path"], "r", encoding="cp1252") as file_v:
                 page["twiki_v"] = file_v.read()
 
-        # TOPICINFO data
-        page.update(self.parse_twiki_page_info(page))
-
-        # TOPICPARENT data
-        page.update(self.parse_twiki_page_parent(page))
-
-        # FILEATTACHMENT data
-        page.update(self.parse_twiki_page_attachments(page))
+        # META vars
+        topic_all_metas = {}
+        topic_all_metas_strs = findall(r'^%META:(.*)\{(.*)\}%',
+                                       page["twiki_txt"], flags=MULTILINE)
+        for meta in topic_all_metas_strs:
+            topic_all_metas[meta[0]] = (
+                (topic_all_metas.get(meta[0], [])) + [meta[1]]
+            )
+        for meta, val in topic_all_metas.items():
+            if meta == "TOPICINFO":
+                page.update(self.parse_twiki_page_info(page, val))
+            elif meta == "TOPICPARENT":
+                page.update(self.parse_twiki_page_parent(page, val))
+            elif meta == "FILEATTACHMENT":
+                page.update(self.parse_twiki_page_attachments(page, val))
+            elif meta == "TOPICMOVED":
+                page.update(self.parse_twiki_page_moved(page, val))
+            else:
+                logger.warning(
+                    'Unknown META %s found for %s', meta,
+                    page["twiki_txt_path"])
 
         return page
 
     @staticmethod
-    def parse_twiki_page_info(page):
+    def parse_twiki_page_info(page: dict, topic_info_strs: str):
         """Parse TWiki TOPICINFO data."""
         out = {}
         topic_info = {}
-        topic_info_strs = findall(r'^%META:TOPICINFO\{(.*)\}%',
-                                  page["twiki_txt"], flags=MULTILINE)
         if len(topic_info_strs) > 1:
             logger.warning(
                 'Multiple TOPICINFO found for %s, using first one',
@@ -119,12 +130,10 @@ class TWikiParser():
         return out
 
     @staticmethod
-    def parse_twiki_page_parent(page):
+    def parse_twiki_page_parent(page: dict, topic_parent_strs: str):
         """Parse TWiki TOPICPARENT data."""
         out = {}
         topic_parent = {}
-        topic_parent_strs = findall(r'^%META:TOPICPARENT\{(.*)\}%',
-                                    page["twiki_txt"], flags=MULTILINE)
         if len(topic_parent_strs) > 1:
             logger.warning(
                 'Multiple TOPICPARENT found for %s, using first one',
@@ -142,15 +151,11 @@ class TWikiParser():
         return out
 
     @staticmethod
-    def parse_twiki_page_attachments(page):
+    def parse_twiki_page_attachments(page: dict,
+                                     topic_file_attachments_strs: str):
         """Parse TWiki FILEATTACHMENT data."""
         out = {}
         topic_file_attachments = []
-        topic_file_attachments_strs = findall(
-            r'^%META:FILEATTACHMENT\{(.*)\}%',
-            page["twiki_txt"],
-            flags=MULTILINE
-        )
         for file_attachment_str in topic_file_attachments_strs:
             file_attachment = TWikiParser.parse_twiki_object(
                 file_attachment_str)
@@ -162,6 +167,24 @@ class TWikiParser():
                     page["twiki_txt_path"])
         out["topic_file_attachments_strs"] = topic_file_attachments_strs
         out["topic_file_attachments"] = topic_file_attachments
+        return out
+
+    @staticmethod
+    def parse_twiki_page_moved(page: dict,
+                               topic_moved_strs: str):
+        """Parse TWiki TOPICMOVED data."""
+        out = {}
+        topic_moved = []
+        for moved_str in topic_moved_strs:
+            moved = TWikiParser.parse_twiki_object(moved_str)
+            if len(moved) > 0:
+                topic_moved.append(moved)
+            else:
+                logger.warning(
+                    'A TOPICMOVED was empty for %s',
+                    page["twiki_txt_path"])
+        out["topic_moved_strs"] = topic_moved_strs
+        out["topic_moved"] = topic_moved
         return out
 
     @staticmethod
