@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from logging import getLogger
+from typing import List
 
 from lxml.etree import Element, QName, SubElement, tostring  # nosec B410
 
@@ -109,7 +110,7 @@ class MediaWikiXMLExporter():
         )
 
     @staticmethod
-    def generate_default_namspaces_list(site_name: str) -> list[tuple]:
+    def generate_default_namspaces_list(site_name: str) -> List[tuple]:
         """Generate list of default MediaWiki namespaces."""
         return [
             ({"key": "-2", "case": "first-letter"}, "Media"),

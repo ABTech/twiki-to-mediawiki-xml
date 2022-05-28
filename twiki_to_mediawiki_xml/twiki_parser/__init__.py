@@ -27,7 +27,7 @@ from os.path import basename, exists, splitext
 from re import MULTILINE, findall, sub
 from shlex import split
 from subprocess import check_output  # nosec B404
-from typing import Sequence
+from typing import List, Sequence
 
 from editrcs import ParseRcs
 
@@ -62,11 +62,11 @@ class TWikiParser():
             page_metadata = self.parse_metadata(twiki_txt_path)
             self.twiki_pages.append(page_metadata)
 
-    def get_pages(self) -> list[dict]:
+    def get_pages(self) -> List[dict]:
         """Get all converted pages."""
         return self.twiki_pages
 
-    def find_data_paths(self) -> list[str]:
+    def find_data_paths(self) -> List[str]:
         """Find TWiki data paths in input folder."""
         return glob(f'./{self.twiki_data_web_path}/*.txt')
 
@@ -139,7 +139,7 @@ class TWikiParser():
 
     @staticmethod
     def parse_twiki_meta_str(meta: str,
-                             meta_strs: Sequence[str]) -> list[dict]:
+                             meta_strs: Sequence[str]) -> List[dict]:
         """Parse TWiki META data from string."""
         all_meta = []
         for meta_str in meta_strs:
