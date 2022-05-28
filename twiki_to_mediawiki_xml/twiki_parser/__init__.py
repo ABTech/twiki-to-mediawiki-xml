@@ -33,7 +33,6 @@ from editrcs import ParseRcs
 
 SKIP_REVISIONS_DEFAULT = ("SiteStatistics", "UserListHeader", "WebLeftBar",
                           "WebStatistics")
-CO_PATH_DEFAULT = "/usr/bin/co"
 
 logger = getLogger(__name__)
 
@@ -43,36 +42,35 @@ class TWikiParser():
 
     def __init__(self,
                  twiki_data_web_path: str,
-                 out_path: str,
-                 skip_revisions: Sequence[str] = SKIP_REVISIONS_DEFAULT,
-                 co_path: str = CO_PATH_DEFAULT):
+                 co_path: str,
+                 skip_revisions: Sequence[str] = SKIP_REVISIONS_DEFAULT):
         """Initialize the TWiki convertor class."""
         self.twiki_data_web_path = twiki_data_web_path
-        self.out_path = out_path
         self.skip_revisions = skip_revisions
         self.co_path = co_path
 
         self.twiki_txt_paths = []
         self.twiki_pages = []
 
-    def run(self):
+    def run(self) -> None:
         """Run the conversion."""
         # Find all of the page files
         self.twiki_txt_paths = self.find_data_paths()
 
         # Convert metadata
-        self.twiki_pages = []
         for twiki_txt_path in self.twiki_txt_paths:
             page_metadata = self.parse_metadata(twiki_txt_path)
             self.twiki_pages.append(page_metadata)
 
+    def get_pages(self) -> list[dict]:
+        """Get all converted pages."""
         return self.twiki_pages
 
-    def find_data_paths(self):
+    def find_data_paths(self) -> list[str]:
         """Find TWiki data paths in input folder."""
         return glob(f'./{self.twiki_data_web_path}/*.txt')
 
-    def parse_metadata(self, twiki_txt_path: str):
+    def parse_metadata(self, twiki_txt_path: str) -> dict:
         """Parse TWiki data file metadata."""
         # Filename and topic name
         page = {
@@ -103,6 +101,7 @@ class TWikiParser():
         # Some checks for METAs
         self.check_metas(page["page_name"], page["metas"])
 
+        # Process revisions
         if "twiki_v" in page and page["page_name"] in self.skip_revisions:
             logger.warning("Skipping revisions for %s", page["page_name"])
         elif "twiki_v" in page:
@@ -118,7 +117,7 @@ class TWikiParser():
         return page
 
     @staticmethod
-    def find_twiki_meta_strs(twiki_txt: dict):
+    def find_twiki_meta_strs(twiki_txt: dict) -> dict:
         """Find TWiki META data on a page."""
         topic_metas_strs = {}
         topic_metas_strs_list = findall(r'^%META:(.*)\{(.*)\}%',
@@ -131,7 +130,7 @@ class TWikiParser():
         return topic_metas_strs
 
     @staticmethod
-    def parse_twiki_meta_strs(metas_strs: dict):
+    def parse_twiki_meta_strs(metas_strs: dict) -> dict:
         """Parse TWiki META data from an object of strings."""
         metas = {}
         for meta_name, val in metas_strs.items():
@@ -139,7 +138,8 @@ class TWikiParser():
         return metas
 
     @staticmethod
-    def parse_twiki_meta_str(meta: str, meta_strs: Sequence[str]):
+    def parse_twiki_meta_str(meta: str,
+                             meta_strs: Sequence[str]) -> list[dict]:
         """Parse TWiki META data from string."""
         all_meta = []
         for meta_str in meta_strs:
@@ -148,7 +148,7 @@ class TWikiParser():
         return all_meta
 
     @staticmethod
-    def parse_twiki_object(twiki_object_str: str):
+    def parse_twiki_object(twiki_object_str: str) -> dict:
         """Parse a TWiki object string.
 
         In the form of: 'attr1="val1" attr2="val2" attr3="val3"'
@@ -167,7 +167,7 @@ class TWikiParser():
         return twiki_object
 
     @staticmethod
-    def check_metas(page_name: str, metas: dict, rev: str = None):
+    def check_metas(page_name: str, metas: dict, rev: str = None) -> None:
         """Check parsed TWiki META data."""
         if "TOPICINFO" not in metas:
             logger.warning(
@@ -185,7 +185,7 @@ class TWikiParser():
     def parse_twiki_revisions(
             twiki_v: str,
             twiki_v_path: str,
-            co_path: str = CO_PATH_DEFAULT):
+            co_path: str) -> dict:
         """Parse TWiki revisions."""
         rcs = ParseRcs(twiki_v)
         deltas = []
@@ -228,7 +228,8 @@ class TWikiParser():
         return revisions
 
     @staticmethod
-    def check_revisions(page_name: str, revisions: dict, twiki_txt: str):
+    def check_revisions(page_name: str, revisions: dict,
+                        twiki_txt: str) -> None:
         """Check parsed revision TWiki data."""
         # Check head is not on branch
         if revisions["branch"] is not None:
