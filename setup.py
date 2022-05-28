@@ -66,7 +66,9 @@ setup(
             'twiki-to-mediawiki-xml=twiki_to_mediawiki_xml.scripts.twiki_to_mediawiki_xml:main'
         ],
     },
-    install_requires=[],
+    install_requires=[
+        'editrcs>=0,<1'
+    ],
     extras_require={
         'dev': [
             'bandit>=1,<2',

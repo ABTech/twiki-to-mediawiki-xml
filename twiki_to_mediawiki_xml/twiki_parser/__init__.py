@@ -26,6 +26,14 @@ from logging import getLogger
 from os.path import basename, exists, splitext
 from re import MULTILINE, findall, sub
 from shlex import split
+from subprocess import check_output  # nosec B404
+from typing import Sequence
+
+from editrcs import ParseRcs
+
+SKIP_REVISIONS_DEFAULT = ("SiteStatistics", "UserListHeader", "WebLeftBar",
+                          "WebStatistics")
+CO_PATH_DEFAULT = "/usr/bin/co"
 
 logger = getLogger(__name__)
 
@@ -33,10 +41,16 @@ logger = getLogger(__name__)
 class TWikiParser():
     """Convert TWiki to JSON."""
 
-    def __init__(self, twiki_data_web_path: str, out_path: str):
+    def __init__(self,
+                 twiki_data_web_path: str,
+                 out_path: str,
+                 skip_revisions: Sequence[str] = SKIP_REVISIONS_DEFAULT,
+                 co_path: str = CO_PATH_DEFAULT):
         """Initialize the TWiki convertor class."""
         self.twiki_data_web_path = twiki_data_web_path
         self.out_path = out_path
+        self.skip_revisions = skip_revisions
+        self.co_path = co_path
 
         self.twiki_txt_paths = []
         self.twiki_pages = []
@@ -63,7 +77,7 @@ class TWikiParser():
         # Filename and topic name
         page = {
             "twiki_txt_path": twiki_txt_path,
-            "twiki_page_name": splitext(basename(twiki_txt_path))[0]
+            "page_name": splitext(basename(twiki_txt_path))[0]
         }
 
         # Check for revision file
@@ -82,110 +96,56 @@ class TWikiParser():
             with open(page["twiki_v_path"], "r", encoding="cp1252") as file_v:
                 page["twiki_v"] = file_v.read()
 
-        # META vars
-        topic_all_metas = {}
-        topic_all_metas_strs = findall(r'^%META:(.*)\{(.*)\}%',
-                                       page["twiki_txt"], flags=MULTILINE)
-        for meta in topic_all_metas_strs:
-            topic_all_metas[meta[0]] = (
-                (topic_all_metas.get(meta[0], [])) + [meta[1]]
-            )
-        for meta, val in topic_all_metas.items():
-            if meta == "TOPICINFO":
-                page.update(self.parse_twiki_page_info(page, val))
-            elif meta == "TOPICPARENT":
-                page.update(self.parse_twiki_page_parent(page, val))
-            elif meta == "FILEATTACHMENT":
-                page.update(self.parse_twiki_page_attachments(page, val))
-            elif meta == "TOPICMOVED":
-                page.update(self.parse_twiki_page_moved(page, val))
-            else:
-                logger.warning(
-                    'Unknown META %s found for %s', meta,
-                    page["twiki_txt_path"])
+        # Process METAs
+        page["meta_strs"] = self.find_twiki_meta_strs(page["twiki_txt"])
+        page["metas"] = self.parse_twiki_meta_strs(page["meta_strs"])
+
+        # Some checks for METAs
+        self.check_metas(page["page_name"], page["metas"])
+
+        if "twiki_v" in page and page["page_name"] in self.skip_revisions:
+            logger.warning("Skipping revisions for %s", page["page_name"])
+        elif "twiki_v" in page:
+            page["revisions"] = self.parse_twiki_revisions(
+                page["twiki_v"],
+                page["twiki_v_path"],
+                self.co_path)
+
+            # Some checks for revisions
+            self.check_revisions(page["page_name"], page["revisions"],
+                                 page["twiki_txt"])
 
         return page
 
     @staticmethod
-    def parse_twiki_page_info(page: dict, topic_info_strs: str):
-        """Parse TWiki TOPICINFO data."""
-        out = {}
-        topic_info = {}
-        if len(topic_info_strs) > 1:
-            logger.warning(
-                'Multiple TOPICINFO found for %s, using first one',
-                page["twiki_txt_path"])
-        if len(topic_info_strs) == 0:
-            logger.warning(
-                'No TOPICINFO found for %s', page["twiki_txt_path"])
-        else:
-            out["twiki_topic_info_str"] = topic_info_strs[0]
-            topic_info = TWikiParser.parse_twiki_object(
-                out["twiki_topic_info_str"])
-            if len(topic_info) > 0:
-                out["twiki_topic_info"] = topic_info
-            else:
-                logger.warning(
-                    'TOPICINFO empty for %s', page["twiki_txt_path"])
-        return out
+    def find_twiki_meta_strs(twiki_txt: dict):
+        """Find TWiki META data on a page."""
+        topic_metas_strs = {}
+        topic_metas_strs_list = findall(r'^%META:(.*)\{(.*)\}%',
+                                        twiki_txt, flags=MULTILINE)
+        for meta_str_list in topic_metas_strs_list:
+            topic_metas_strs[meta_str_list[0]] = (
+                topic_metas_strs.get(meta_str_list[0], []) +
+                [meta_str_list[1]]
+            )
+        return topic_metas_strs
 
     @staticmethod
-    def parse_twiki_page_parent(page: dict, topic_parent_strs: str):
-        """Parse TWiki TOPICPARENT data."""
-        out = {}
-        topic_parent = {}
-        if len(topic_parent_strs) > 1:
-            logger.warning(
-                'Multiple TOPICPARENT found for %s, using first one',
-                page["twiki_txt_path"])
-        if len(topic_parent_strs) > 0:
-            out["twiki_topic_parent_str"] = topic_parent_strs[0]
-            topic_parent = TWikiParser.parse_twiki_object(
-                out["twiki_topic_parent_str"])
-            if len(topic_parent) > 0:
-                out["twiki_topic_parent"] = topic_parent
-            else:
-                logger.warning(
-                    'TOPICPARENT present but empty for %s',
-                    page["twiki_txt_path"])
-        return out
+    def parse_twiki_meta_strs(metas_strs: dict):
+        """Parse TWiki META data from an object of strings."""
+        metas = {}
+        for meta_name, val in metas_strs.items():
+            metas[meta_name] = TWikiParser.parse_twiki_meta_str(meta_name, val)
+        return metas
 
     @staticmethod
-    def parse_twiki_page_attachments(page: dict,
-                                     topic_file_attachments_strs: str):
-        """Parse TWiki FILEATTACHMENT data."""
-        out = {}
-        topic_file_attachments = []
-        for file_attachment_str in topic_file_attachments_strs:
-            file_attachment = TWikiParser.parse_twiki_object(
-                file_attachment_str)
-            if len(file_attachment) > 0:
-                topic_file_attachments.append(file_attachment)
-            else:
-                logger.warning(
-                    'A FILEATTACHMENT was empty for %s',
-                    page["twiki_txt_path"])
-        out["topic_file_attachments_strs"] = topic_file_attachments_strs
-        out["topic_file_attachments"] = topic_file_attachments
-        return out
-
-    @staticmethod
-    def parse_twiki_page_moved(page: dict,
-                               topic_moved_strs: str):
-        """Parse TWiki TOPICMOVED data."""
-        out = {}
-        topic_moved = []
-        for moved_str in topic_moved_strs:
-            moved = TWikiParser.parse_twiki_object(moved_str)
-            if len(moved) > 0:
-                topic_moved.append(moved)
-            else:
-                logger.warning(
-                    'A TOPICMOVED was empty for %s',
-                    page["twiki_txt_path"])
-        out["topic_moved_strs"] = topic_moved_strs
-        out["topic_moved"] = topic_moved
-        return out
+    def parse_twiki_meta_str(meta: str, meta_strs: Sequence[str]):
+        """Parse TWiki META data from string."""
+        all_meta = []
+        for meta_str in meta_strs:
+            meta = TWikiParser.parse_twiki_object(meta_str)
+            all_meta.append(meta)
+        return all_meta
 
     @staticmethod
     def parse_twiki_object(twiki_object_str: str):
@@ -205,3 +165,101 @@ class TWikiParser():
                                         twiki_object_attr[1])
             twiki_object[twiki_object_attr_name] = twiki_object_attr_val
         return twiki_object
+
+    @staticmethod
+    def check_metas(page_name: str, metas: dict, rev: str = None):
+        """Check parsed TWiki META data."""
+        if "TOPICINFO" not in metas:
+            logger.warning(
+                'META TOPICINFO missing for %s rev %s', page_name, rev)
+        elif len(metas["TOPICINFO"]) > 1:
+            logger.warning(
+                'Multiple META TOPICINFO for %s rev %s', page_name, rev)
+        for meta, vals in metas.items():
+            for val in vals:
+                if len(val) == 0:
+                    logger.warning('A META %s is empty for %s rev %s',
+                                   meta, page_name, rev)
+
+    @staticmethod
+    def parse_twiki_revisions(
+            twiki_v: str,
+            twiki_v_path: str,
+            co_path: str = CO_PATH_DEFAULT):
+        """Parse TWiki revisions."""
+        rcs = ParseRcs(twiki_v)
+        deltas = []
+        revisions = {
+            "head": rcs.getHead(),
+            "branch": rcs.getBranch(),
+            "access": rcs.getAccess(),
+            "symbols": rcs.getSymbols(),
+            "locks": rcs.getLocks(),
+            "comment": rcs.getComment(),
+            "desc": rcs.getDesc(),
+            "rcs_string": rcs.toString(),
+            "deltas": [],
+        }
+        rcs.mapDeltas(deltas.append)
+        for delta in deltas:
+            revision = {
+                "revision": delta.getRevision(),
+                "commit_id": delta.getCommitId(),
+                "date": delta.getDate(),
+                "author": delta.getAuthor(),
+                "state": delta.getState(),
+                "branches": delta.getBranches(),
+                "next": delta.getNext(),  # Previous for trunks
+                "log": delta.getLog(),
+                "delta_string": delta.deltaToString(),
+                "delta_text_string": delta.deltaTextToString(),
+            }
+            revisions["deltas"].append(revision)
+        # textFromDiff and textToDiff from editrcs error, so we use co
+        for revision in revisions["deltas"]:
+            rev, path = revision["revision"], twiki_v_path
+            cmd = [co_path, "-q", f"-p{rev}", path]
+            revision["text"] = check_output(cmd, text=True,  # nosec B603
+                                            encoding="cp1252")
+            revision["meta_strs"] = TWikiParser.find_twiki_meta_strs(
+                revision["text"])
+            revision["metas"] = TWikiParser.parse_twiki_meta_strs(
+                revision["meta_strs"])
+        return revisions
+
+    @staticmethod
+    def check_revisions(page_name: str, revisions: dict, twiki_txt: str):
+        """Check parsed revision TWiki data."""
+        # Check head is not on branch
+        if revisions["branch"] is not None:
+            logger.warning(
+                'Revisions on branch for %s', page_name)
+
+        # Some checks for revisions
+        for i, revision in enumerate(revisions["deltas"]):
+            # Check METAs
+            TWikiParser.check_metas(page_name, revision["metas"],
+                                    rev=revision["revision"])
+
+            # Check latest revision matches txt
+            if revisions["head"] == revision["revision"]:
+                if twiki_txt != revision["text"]:
+                    logger.warning(
+                        'Head rev (%s) not equal to current data for %s',
+                        revision["revision"], page_name)
+
+            # Check for current branch
+            if len(revision["branches"]) > 0:
+                logger.warning(
+                    'Revision %s has branches for %s',
+                    revision["revision"],
+                    page_name)
+
+            # Check for duplicates
+            for j, revision2 in enumerate(revisions["deltas"]):
+                if (i != j and
+                        revision["revision"] == revision2["revision"]):
+                    logger.warning(
+                        'Duplicate revision %s for %s',
+                        revision["revision"],
+                        page_name)
