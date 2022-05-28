@@ -67,7 +67,7 @@ setup(
         ],
     },
     install_requires=[
-        'git://github.com/ben-cohen/editrcs.git@0.5.1#egg=editrcs'  # Pypi is missing wheels and sources
+        'editrcs @ git+https://github.com/DaAwesomeP/editrcs.git@77971eb1e5d3ceaca0a4adb45624445ef9d63e90#egg=editrcs'  # Pypi is missing wheels and sources
     ],
     extras_require={
         'dev': [
