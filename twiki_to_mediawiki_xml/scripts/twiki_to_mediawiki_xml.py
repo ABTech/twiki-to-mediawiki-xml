@@ -76,7 +76,7 @@ def main() -> int:
     out = ""
     try:
         if args.command == 'twiki_parser':
-            co_path = which("cos")
+            co_path = which("co")
             if co_path is None:
                 raise Exception("Could not find co executable, please specify "
                                 "--co-path!")
