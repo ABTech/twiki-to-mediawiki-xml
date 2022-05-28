@@ -29,6 +29,7 @@ from shlex import split
 from subprocess import check_output  # nosec B404
 from typing import List, Sequence
 
+from deepdiff import DeepDiff
 from editrcs import ParseRcs
 
 SKIP_REVISIONS_DEFAULT = ("SiteStatistics", "UserListHeader", "WebLeftBar",
@@ -112,7 +113,7 @@ class TWikiParser():
 
             # Some checks for revisions
             self.check_revisions(page["page_name"], page["revisions"],
-                                 page["twiki_txt"])
+                                 page["twiki_txt"], page["metas"])
 
         return page
 
@@ -229,7 +230,7 @@ class TWikiParser():
 
     @staticmethod
     def check_revisions(page_name: str, revisions: dict,
-                        twiki_txt: str) -> None:
+                        twiki_txt: str, metas: dict) -> None:
         """Check parsed revision TWiki data."""
         # Check head is not on branch
         if revisions["branch"] is not None:
@@ -242,11 +243,16 @@ class TWikiParser():
             TWikiParser.check_metas(page_name, revision["metas"],
                                     rev=revision["revision"])
 
-            # Check latest revision matches txt
             if revisions["head"] == revision["revision"]:
+                # Check latest revision matches txt
                 if twiki_txt != revision["text"]:
                     logger.warning(
-                        'Head rev (%s) not equal to current data for %s',
+                        'Head rev (%s) txt not equal to current data for %s',
+                        revision["revision"], page_name)
+                # Check latest revision matches metas
+                if len(DeepDiff(metas, revision["metas"])) > 0:
+                    logger.warning(
+                        'Head rev (%s) metas not equal to current data for %s',
                         revision["revision"], page_name)
 
             # Check for current branch
