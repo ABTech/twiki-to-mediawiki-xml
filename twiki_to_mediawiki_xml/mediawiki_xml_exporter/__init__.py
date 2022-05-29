@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from datetime import datetime
-from distutils.version import StrictVersion
 # from hashlib import sha1
 from json import load
 from logging import getLogger
@@ -30,6 +29,7 @@ from re import sub
 from typing import List
 
 from lxml.etree import Element, QName, SubElement, tostring  # nosec B410
+from pkg_resources import parse_version
 
 from twiki_to_mediawiki_xml import __version__
 
@@ -267,7 +267,7 @@ class MediaWikiXMLExporter():
         out = []
         deltas_sorted = sorted(
             deltas,
-            key=lambda rev: StrictVersion(rev['revision']))
+            key=lambda rev: parse_version(rev['revision']))
         revision_mapping = {}
         for delta in deltas_sorted:
             parent_id = None
