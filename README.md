@@ -31,13 +31,15 @@ A current (possible) plan for this tool is to develop several sub-tools:
 
 ### Current
 
-- None!
+- Revisions
+- Preserve all timestamps
+- Page renaming (titles, but not yet in body text)
+- Convert parents pages to [Subpages](https://www.mediawiki.org/wiki/Help:Subpages)
+- Capitalize usernames
 
 ### Planned
 
 - Convert all formatting ([Wikitext](https://www.mediawiki.org/wiki/Wikitext))
-- Revisions
-- Preserve all timestamps
 - Convert [signatures](https://www.mediawiki.org/wiki/Help:Signatures)
 - Convert WikiWords to link
 - Convert WikiWords to [MediaWiki convention (underscores)](https://en.wikipedia.org/wiki/Wikipedia:Naming_conventions_(technical_restrictions))
@@ -46,7 +48,6 @@ A current (possible) plan for this tool is to develop several sub-tools:
 - File revisions
 - Move user pages to MediaWiki `User:` given a list of user pages
 - Rename user pages to target MediaWiki username given a mapping
-- Convert parents pages to [Subpages](https://www.mediawiki.org/wiki/Help:Subpages)
 
 ### Possible but Unlikely
 - Support multiple TWiki webs

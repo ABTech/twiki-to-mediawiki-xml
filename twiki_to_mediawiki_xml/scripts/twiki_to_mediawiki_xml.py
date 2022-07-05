@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import sys
 import traceback
+from datetime import datetime
 from json import dumps
 from logging import getLogger
 from os.path import normpath
@@ -33,6 +34,8 @@ from shutil import which
 from twiki_to_mediawiki_xml import __version__
 from twiki_to_mediawiki_xml.mediawiki_xml_exporter import MediaWikiXMLExporter
 from twiki_to_mediawiki_xml.twiki_parser import TWikiParser
+from twiki_to_mediawiki_xml.twiki_to_mediawiki_format import \
+    TWikiToMediaWikiFormat
 
 logger = getLogger(__name__)
 
@@ -44,13 +47,18 @@ under certain conditions; for details see LICENSE and README.md.
 """
 
 
+# pylint: disable=too-many-statements
 def main() -> int:
     """Convert a TWiki to MediaWiki XML."""
     parser = argparse.ArgumentParser(
         description='Convert a TWiki to MediaWiki XML.',
         epilog=LICENSE_NOTICE)
     parser.add_argument('command',  type=str,
-                        choices=['twiki_parser', 'mediawiki_xml_exporter'],
+                        choices=[
+                            'twiki_parser',
+                            'twiki_to_mediawiki_format',
+                            'mediawiki_xml_exporter'
+                        ],
                         help='Which tool to run')
     parser.add_argument('in_path',  type=str,
                         help='Input directory or file path')
@@ -60,12 +68,18 @@ def main() -> int:
                         help='Path to co binary')
     parser.add_argument('-d', '--db-name', action='store',
                         help='Name of MediaWiki database.')
-    parser.add_argument('-o', '--out_path',  type=str,
+    parser.add_argument('-o', '--out-path',  type=str,
                         help='Output to file (UTF-8) instead of stdout')
+    parser.add_argument('-p', '--page-replace-path',  type=str,
+                        help='Path to page name replacement CSV file')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Don\'t output the result, just run')
     parser.add_argument('-s', '--site-name', action='store',
                         help='Name of MediaWiki site.')
+    parser.add_argument('-t', '--migration-timestamp', action='store',
+                        help='Timestamp to use for migrations (defaults now).')
+    parser.add_argument('-u', '--migration-username', action='store',
+                        help='Username to use for migrations.')
     if __version__ is not None:
         parser.add_argument('--version', action='version',
                             version=f"%(prog)s {__version__}")
@@ -85,7 +99,20 @@ def main() -> int:
             parser = TWikiParser(*cmd_args, **cmd_kwargs)
             parser.run()
             out = parser.get_pages()
-            out_processed = dumps(out)
+            out_processed = dumps(out, indent=4)
+        elif args.command == 'twiki_to_mediawiki_format':
+            if args.page_replace_path is None:
+                raise Exception("Missing required --page-replace-path!")
+            norm_page_replace_path = normpath(args.page_replace_path)
+            cmd_args = [
+                norm_in_path,
+                norm_page_replace_path
+            ]
+            cmd_kwargs = {}
+            exporter = TWikiToMediaWikiFormat(*cmd_args, **cmd_kwargs)
+            exporter.run()
+            out = exporter.get_mediawiki_pages()
+            out_processed = dumps(out, indent=4)
         elif args.command == 'mediawiki_xml_exporter':
             if (args.base_page_url is None or args.db_name is None or
                     args.site_name is None):
@@ -98,6 +125,11 @@ def main() -> int:
                 args.base_page_url
             ]
             cmd_kwargs = {}
+            if args.migration_username is not None:
+                cmd_kwargs["migration_username"] = args.migration_username
+            if args.migration_timestamp is not None:
+                cmd_kwargs["migration_timestamp"] = (
+                    datetime.strptime(args.migration_timestamp))
             exporter = MediaWikiXMLExporter(*cmd_args, **cmd_kwargs)
             exporter.run()
             out_processed = exporter.get_xml_str()

@@ -1,5 +1,5 @@
 """
-__init__.py: Convert TWiki to JSON.
+twiki_parser.py: Convert TWiki to JSON.
 
 Created by Perry Naseck on 2022-05-24.
 This file is part of the https://github.com/ABTech/twiki-to-mediawiki-xml
