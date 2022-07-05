@@ -67,9 +67,8 @@ setup(
         ],
     },
     install_requires=[
-        # Pypi is missing wheels and sources
-        'editrcs @ git+https://github.com/ben-cohen/editrcs.git@8307af79ba6abe5f76313cd747fc53439d99959b#egg=editrcs',
         'deepdiff>=5,<6',
+        'editrcs>=0.5.3,<6',
         'lxml>=4,<5',
         'setuptools>=62,<63'
     ],
