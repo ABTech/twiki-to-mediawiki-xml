@@ -46,10 +46,16 @@ class TwikiToMediaWikiSubpages():
                     logger.warning('Page %s has multiple TOPICPARENT, using '
                                    'first one.', page["page_name"])
                 parent_name = page["metas"]["TOPICPARENT"][0]["name"]
+                if "." in parent_name:
+                    parent_name = parent_name.split(".")[1]
                 page_name = page["page_name"]
                 if page_name == parent_name:
                     logger.warning("Ignoring parent topic of same name for %s",
                                    parent_name)
+                elif page_name.startswith("User:"):
+                    logger.warning("Ignoring parent topic of %s for %s since "
+                                   "it is a user page",
+                                   parent_name, page_name)
                 elif parent_name != 'WebHome':
                     children[page_name] = parent_name
                     children_by_index[page_name] = page_i

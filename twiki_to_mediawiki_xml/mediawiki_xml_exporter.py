@@ -21,7 +21,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from copy import deepcopy
 from datetime import datetime
 # from hashlib import sha1
 from json import load
@@ -98,25 +97,31 @@ class MediaWikiXMLExporter():
 
         # pages
         rev_counter = 1
-        redir_page_counter = len(self.mediawiki_json) + 1
-        for page_i, page_in in enumerate(self.mediawiki_json):
+        page_counter = 1
+        for page_in in self.mediawiki_json:
             page = self.generate_xml_page_header(
                 self.mediawiki_xml_root,
                 page_in["page_name"],
                 self.namespace,
-                page_i + 1
+                page_counter
             )
+            page_counter += 1
 
             # Assume latest revision matches text, so use latest revision data
             # instead of latest txt or TOPICINFO
             last_rev = None
             if "revisions" in page_in:
-                new_revs = self.convert_twiki_deltas_to_mediawiki_revs(
-                    page_in["revisions"]["deltas"], rev_counter)
+                new_revs, rev_counter, page_counter = (
+                    self.convert_twiki_deltas_to_mw_revs(
+                        page_in["revisions"]["deltas"],
+                        self.mediawiki_xml_root, self.namespace,
+                        page_in["page_name"],
+                        self.mediawiki_json,
+                        rev_counter,
+                        page_counter))
                 for rev in new_revs:
                     page.append(rev[0])
                 last_rev = new_revs[-1][1]
-                rev_counter += len(new_revs)
             else:
                 if ("TOPICINFO" not in page_in["metas"] or
                         len(page_in["metas"]["TOPICINFO"]) < 1):
@@ -129,30 +134,21 @@ class MediaWikiXMLExporter():
                 if len(page_in["metas"]["TOPICINFO"]) > 1:
                     logger.warning('Page %s has multiple TOPICINFO, using '
                                    'first one.', page_in["page_name"])
-                revision = self.convert_twiki_page_to_mediawiki_rev(
+                revision = self.convert_twiki_page_to_mw_rev(
                     page_in, rev_counter, None)
                 rev_counter += 1
                 last_rev = revision[1]
                 page.append(revision[0])
 
             if "old_page_name" in page_in and last_rev is not None:
-                rev_name = self.convert_mediawiki_rev_to_mediawiki_rev_renamed(
-                    last_rev, page_in, rev_counter, self.migration_username,
-                    self.migration_timestamp
-                )
-                rev_counter += 2
-                page.append(rev_name[0][0])
-                redir_page = self.generate_xml_page_header(
-                    self.mediawiki_xml_root,
-                    page_in["old_page_name"],
-                    self.namespace,
-                    redir_page_counter
-                )
-                SubElement(redir_page, 'redirect', attrib={
-                    "title": page_in["page_name"]
-                })
-                redir_page_counter += 1
-                redir_page.append(rev_name[1][0])
+                old_name = page_in["old_page_name"]
+                new_name = page_in["page_name"]
+                rev_name, rev_counter, page_counter = (
+                    self.convert_twiki_deltas_to_mw_move(
+                        last_rev, old_name, new_name, self.mediawiki_xml_root,
+                        self.namespace, self.migration_username,
+                        self.migration_timestamp, rev_counter, page_counter))
+                page.append(rev_name[0])
 
     def get_xml_str(self) -> str:
         """Get converted XML as string."""
@@ -223,9 +219,9 @@ class MediaWikiXMLExporter():
         ]
 
     @staticmethod
-    def generate_mediawiki_contributor(username: str = None,
-                                       user_id: int = None,
-                                       user_ip: str = None) -> Element:
+    def generate_mw_contributor(username: str = None,
+                                user_id: int = None,
+                                user_ip: str = None) -> Element:
         """Generate a MediaWiki contributor."""
         contributor = Element('contributor')
         if username is not None:
@@ -237,7 +233,7 @@ class MediaWikiXMLExporter():
         return contributor
 
     @staticmethod
-    def generate_mediawiki_rev(  # pylint: disable=too-many-arguments
+    def generate_mw_rev(  # pylint: disable=too-many-arguments
             rev_id: int,
             timestamp: datetime,
             contributor: dict,
@@ -254,7 +250,7 @@ class MediaWikiXMLExporter():
         timestamp_xml = f"{timestamp.isoformat()}Z"
         SubElement(revision, 'timestamp').text = timestamp_xml
         revision.append(
-            MediaWikiXMLExporter.generate_mediawiki_contributor(**contributor))
+            MediaWikiXMLExporter.generate_mw_contributor(**contributor))
         if minor:
             SubElement(revision, 'minor')
         if comment is not None:
@@ -288,17 +284,14 @@ class MediaWikiXMLExporter():
         })
 
     @staticmethod
-    def convert_twiki_rev_to_mediawiki_rev(twiki_revision: dict, rev_id: int,
-                                           parent_id: int = None) -> Element:
+    def convert_twiki_rev_to_mw_rev(twiki_revision: dict, rev_id: int,
+                                    parent_id: int = None
+                                    ) -> Tuple[Element, dict]:
         """Convert a TWiki revision to a MediaWiki revision."""
-        timestamp = None
-        if int(twiki_revision["date"].split(".")[0]) < 101:
-            timestamp = datetime.strptime(twiki_revision["date"],
-                                          "%y.%m.%d.%H.%M.%S")
-        else:
-            timestamp = datetime.strptime(twiki_revision["date"],
-                                          "%Y.%m.%d.%H.%M.%S")
-        return MediaWikiXMLExporter.generate_mediawiki_rev(
+        timestamp = (
+            MediaWikiXMLExporter.parse_twiki_delta_date(twiki_revision["date"])
+        )
+        return MediaWikiXMLExporter.generate_mw_rev(
             rev_id,
             # datetime.utcfromtimestamp(int(twiki_revision["date"])),
             timestamp,
@@ -308,12 +301,13 @@ class MediaWikiXMLExporter():
         )
 
     @staticmethod
-    def convert_twiki_page_to_mediawiki_rev(twiki_page: dict, rev_id: int,
-                                            parent_id: int = None) -> Element:
+    def convert_twiki_page_to_mw_rev(twiki_page: dict, rev_id: int,
+                                     parent_id: int = None
+                                     ) -> Tuple[Element, dict]:
         """Convert a TWiki page to a MediaWiki revision."""
         twiki_date = twiki_page["metas"]["TOPICINFO"][0]["date"]
         twiki_author = twiki_page["metas"]["TOPICINFO"][0]["author"]
-        return MediaWikiXMLExporter.generate_mediawiki_rev(
+        return MediaWikiXMLExporter.generate_mw_rev(
             rev_id,
             datetime.utcfromtimestamp(int(twiki_date)),
             {"username": twiki_author},
@@ -322,60 +316,144 @@ class MediaWikiXMLExporter():
         )
 
     @staticmethod
-    def convert_twiki_deltas_to_mediawiki_revs(
+    # pylint: disable=too-many-arguments
+    def convert_twiki_deltas_to_mw_revs(
             deltas: List[dict],
-            rev_counter: int) -> List[Element]:
+            mediawiki_xml_root: dict,
+            namespace: int,
+            new_page_name: str,
+            all_pages: list,
+            rev_counter: int,
+            page_counter: int
+    ) -> Tuple[List[Tuple[Element, dict]], int, int]:
         """Convert TWiki deltas to MediaWiki revisions."""
         out = []
         deltas_sorted = sorted(
             deltas,
             key=lambda rev: parse_version(rev['revision']))
         revision_mapping = {}
+        moves_handled = []
+        last_rev = None
         for delta in deltas_sorted:
             parent_id = None
             if delta["next"] != "":
                 parent_id = revision_mapping[delta["next"]]
-            revision = MediaWikiXMLExporter.convert_twiki_rev_to_mediawiki_rev(
+
+            revision = MediaWikiXMLExporter.convert_twiki_rev_to_mw_rev(
                 delta, rev_counter, parent_id)
+            last_rev = revision[1]
             revision_mapping[delta["revision"]] = rev_counter
             rev_counter += 1
             out.append(revision)
-        return out
+
+            if "TOPICMOVED" in delta["metas"]:
+                for meta_moved in delta["metas"]["TOPICMOVED"]:
+                    move_date_int = int(meta_moved["date"])
+                    if move_date_int not in moves_handled:
+                        move_timestamp = (
+                            datetime.utcfromtimestamp(move_date_int))
+                        old_name = meta_moved["from"].split(".")[1]
+                        new_name = meta_moved["to"].split(".")[1]
+                        username = meta_moved["by"]
+                        moves_handled.append(move_date_int)
+                        if old_name == new_name:
+                            logger.warning("Ignoring move between wikis, %s "
+                                           "(%s)", new_name, new_page_name)
+                            continue
+                        if any(page['page_name'] == old_name for page in
+                               all_pages):
+                            logger.warning("Ignoring move from %s to %s "
+                                           "because old name exists as page "
+                                           "(%s)",
+                                           old_name, new_name, new_page_name)
+                            continue
+                        rev_name, rev_counter, page_counter = (
+                            MediaWikiXMLExporter.convert_twiki_deltas_to_mw_move(  # noqa: E501
+                                last_rev, old_name, new_page_name,
+                                mediawiki_xml_root, namespace, username,
+                                move_timestamp, rev_counter, page_counter))
+                        out.append(rev_name)
+                        revision_mapping[delta["revision"]] = (
+                            rev_name[1]["rev_id"])
+        return (out, rev_counter, page_counter)
 
     @staticmethod
-    def convert_mediawiki_rev_to_mediawiki_rev_renamed(
+    # pylint: disable=too-many-arguments
+    def convert_mw_rev_to_mw_rev_renamed(
             last_rev: Element,
-            twiki_page: dict,
+            old_name: str,
+            new_name: str,
             rev_counter: int,
-            migration_username: str,
-            migration_timestamp: datetime) -> Tuple[Element]:
+            username: str,
+            timestamp: datetime
+    ) -> Tuple[Tuple[Element, dict], Tuple[Element, dict]]:
         """Convert MediaWiki rev to MediaWiki renamed revision."""
-        out = deepcopy(last_rev)
-        contributor = {"username": migration_username}
-        text = out["text"]
-        parent_id = out["rev_id"]
-        origin_id = out["rev_id"]
-        old_name = twiki_page["old_page_name"]
-        new_name = twiki_page["page_name"]
+        contributor = {"username": username}
+        text = last_rev["text"]
+        parent_id = last_rev["rev_id"]
+        origin_id = last_rev["rev_id"]
         redirect_text = f"#REDIRECT [[{new_name}]]"
         comment = (
-            f"{migration_username} moved page [[{old_name}]] to [[{new_name}]]"
+            f"{username} moved page [[{old_name}]] to [[{new_name}]]"
         )
-
-        return (MediaWikiXMLExporter.generate_mediawiki_rev(
+        return (MediaWikiXMLExporter.generate_mw_rev(
             rev_counter,
-            migration_timestamp,
+            timestamp,
             contributor,
             text,
             parent_id=parent_id,
             origin_id=origin_id,
             minor=True,
             comment=comment
-        ), MediaWikiXMLExporter.generate_mediawiki_rev(
+        ), MediaWikiXMLExporter.generate_mw_rev(
             rev_counter + 1,
-            migration_timestamp,
+            timestamp,
             contributor,
             redirect_text,
             minor=True,
             comment=comment
         ))
+
+    @staticmethod
+    # pylint: disable=too-many-arguments
+    def convert_twiki_deltas_to_mw_move(
+            last_rev: dict,
+            old_name: str,
+            new_name: str,
+            mediawiki_xml_root: Element,
+            namespace: int,
+            username: str,
+            timestamp: datetime,
+            rev_counter: int,
+            page_counter: int) -> Tuple[Tuple[Element, dict], int, int]:
+        """Convert a delta to a move revision and redirect page."""
+        rev_name = MediaWikiXMLExporter.convert_mw_rev_to_mw_rev_renamed(
+            last_rev, old_name, new_name, rev_counter,
+            username, timestamp
+        )
+        rev_counter += 2
+        redir_page = MediaWikiXMLExporter.generate_xml_page_header(
+            mediawiki_xml_root,
+            old_name,
+            namespace,
+            page_counter
+        )
+        page_counter += 1
+        SubElement(redir_page, 'redirect', attrib={
+            "title": new_name
+        })
+        redir_page.append(rev_name[1][0])
+        return (rev_name[0], rev_counter, page_counter)
+
+    @staticmethod
+    def parse_twiki_delta_date(date: str) -> datetime:
+        """Parse a TWiki delta date.
+
+        Takes dates in the form YYYY.MM.DD.HH.MM.SS or YY.MM.DD.HH.MM.SS.
+        """
+        timestamp = None
+        if int(date.split(".")[0]) < 101:
+            timestamp = datetime.strptime(date, "%y.%m.%d.%H.%M.%S")
+        else:
+            timestamp = datetime.strptime(date, "%Y.%m.%d.%H.%M.%S")
+        return timestamp

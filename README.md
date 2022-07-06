@@ -33,8 +33,12 @@ A current (possible) plan for this tool is to develop several sub-tools:
 
 - Revisions
 - Preserve all timestamps
-- Page renaming (titles, but not yet in body text)
-- Convert parents pages to [Subpages](https://www.mediawiki.org/wiki/Help:Subpages)
+- Page renaming (titles, but not yet in body text), including `User:` pages
+- Preserve page renaming/movement history (NOTE: All pages will appear to
+  redirect directly to the final page name, not chains of redirects)
+- Convert parents pages to
+  [Subpages](https://www.mediawiki.org/wiki/Help:Subpages), preserving any
+  depth of hierarchy
 - Capitalize usernames
 
 ### Planned
@@ -46,8 +50,7 @@ A current (possible) plan for this tool is to develop several sub-tools:
 - Attachments/Files
 - File metadata
 - File revisions
-- Move user pages to MediaWiki `User:` given a list of user pages
-- Rename user pages to target MediaWiki username given a mapping
+- Convert TWiki user page attributes to a MediaWiki format
 
 ### Possible but Unlikely
 - Support multiple TWiki webs
