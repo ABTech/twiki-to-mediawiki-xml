@@ -68,6 +68,9 @@ class TwikiToMediaWikiSubpages():
             names_path = reverse_path[::-1]
             new_page_name = self.page_to_subpage(names_path)
             page = self.mediawiki_pages[children_by_index[child_name]]
+            if "old_page_name" not in page:
+                # If page was not already renamed, this is now a rename
+                page["old_page_name"] = page["page_name"]
             page["page_name"] = new_page_name
 
     def get_pages(self) -> List[dict]:
